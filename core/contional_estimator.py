@@ -73,7 +73,7 @@ class DCCEstimator(ConditionalEstimator):
             loss += np.log(np.linalg.det(self.R_t)) + s_t @ (self.R_t @ s_t)
         return loss
 
-    def fit(self):
+    def fit(self) -> "DCCEstimator":
         constraints = [
             {'type': 'ineq', 'fun': lambda x: 1 - x[0] - x[1]},
             {'type': 'ineq', 'fun': lambda x: x[0]},
@@ -84,6 +84,7 @@ class DCCEstimator(ConditionalEstimator):
         )
         self.alpha = result.x[0]
         self.beta = result.x[1]
+        return self
 
     def estimate(self) -> np.ndarray:
         self.reset()
