@@ -1,6 +1,8 @@
-# Covariance Matrix Estimation for Financial Time Series
+# Comparison of DCC-based Covariance Matrix Estimation Methods
 
-A comprehensive Python library for estimating covariance matrices in financial applications, implementing both unconditional and conditional covariance estimation methods. This project is part of the Baruch MFE Capstone.
+A comprehensive Python library for estimating covariance matrices in financial applications, implementing both unconditional and conditional covariance estimation methods. This project compares three state-of-the-art unconditional covariance estimators—Linear Shrinkage (LS), Quadratic Inverse Shrinkage (QIS), and Average Oracle (AO)—as priors for the Dynamic Conditional Correlation (DCC) model in large-scale portfolio optimization.
+
+**Key Finding**: Our empirical evaluation on 500 U.S. equities (2000-2024) reveals that LS consistently delivers the strongest risk-adjusted performance in unconstrained settings, achieving an annualized Sharpe ratio of 1.58 with 81.5% cumulative return. This project is part of the Baruch MFE Capstone.
 
 ## Features
 
@@ -18,7 +20,8 @@ A comprehensive Python library for estimating covariance matrices in financial a
 
 ### Devolatization
 
-- **GARCH-based Devolatization**: Fit univariate GARCH models to estimate conditional volatilities for each asset
+- **EWMA Volatility Estimation**: Exponentially weighted moving average (60-day window) for conditional volatility estimation
+- **GARCH-based Devolatization**: Fit univariate GARCH models to estimate conditional volatilities for each asset (optional)
 
 ## Installation
 
@@ -47,25 +50,67 @@ pip install -e .
 
 ## Quick Start
 
+### Complete Workflow Example
+
+The main workflow follows the empirical study in `main.ipynb`:
+
+```python
+import numpy as np
+import pandas as pd
+from core.unconditional_estimator import QIS, LS, AO
+from core.contional_estimator import DCCEstimator
+
+# 1. Load and prepare CRSP data
+crsp = pd.read_csv("CRSP.csv")
+crsp["RET"] = crsp["RET"].replace("C", np.nan).replace("B", np.nan).astype(float)
+crsp = crsp.dropna(subset=["TICKER", "PRC"])
+
+# 2. Create return matrix and select top 500 stocks by market cap
+rets = pd.pivot_table(crsp, values="RET", index="date", columns="PERMNO")
+companies = crsp[crsp.date == "2000-01-03"].nlargest(500, "MarketCap").PERMNO
+rets = rets[companies]
+
+# 3. Estimate volatility using EWMA (60-day window)
+vol60 = rets.ewm(60).std() * np.sqrt(252) + 0.01
+
+# 4. Split into train/test sets
+train = rets.loc[:"2010-01-01"].dropna(axis=1)
+test = rets.loc["2010-01-01":]
+vol60 = vol60[train.columns].iloc[60:]
+train = train.iloc[60:]
+
+# 5. Estimate unconditional covariance matrices
+C_qis = QIS(train.values, vol60.reindex_like(train).values).estimate()
+C_ls = LS(train.values, vol60.reindex_like(train).values, rho=0.3).estimate()
+
+# For AO, use extended dataset with sampling
+S_total = train.values / vol60.reindex_like(train).values
+C_ao = AO(train.values, vol60.reindex_like(train).values, 
+          lookback_window=500).fit(S_total, sampling=10).estimate()
+
+# 6. Run DCC-based GMV backtest
+from main.ipynb import run_dcc_gmv_backtest
+
+gmv_returns_ls, gmv_stats_ls, gmv_metrics_ls = run_dcc_gmv_backtest(
+    C_ls, test_aligned, vol_test
+)
+```
+
 ### Basic Usage
 
 ```python
 import numpy as np
 from core.unconditional_estimator import SampleCov, QIS, LS, AO
 from core.contional_estimator import DCCEstimator
-from core.devolatizer import fit_garch_and_get_std
 
 # Generate sample return data
 T, n = 1000, 10  # 1000 days, 10 assets
 R = np.random.randn(T, n)  # Return matrix [T, n]
 
-# Estimate volatility using GARCH
-D = fit_garch_and_get_std(R)  # Volatility matrix [T, n]
+# Estimate volatility using EWMA (as in main study)
+D = pd.DataFrame(R).ewm(60).std().values * np.sqrt(252) + 0.01
 
 # Unconditional covariance estimation
-sample_cov = SampleCov(R, D)
-C_sample = sample_cov.estimate()
-
 qis = QIS(R, D)
 C_qis = qis.estimate()
 
@@ -77,7 +122,7 @@ ao.fit(n_jobs=4)  # Use 4 parallel processes
 C_ao = ao.estimate()
 
 # Conditional covariance estimation (DCC)
-dcc = DCCEstimator(C_sample, R, D, alpha=0.01, beta=0.98)
+dcc = DCCEstimator(C_ls, R, D, alpha=0.01, beta=0.98)
 dcc.fit()  # Fit DCC parameters
 C_conditional = dcc.estimate()
 ```
@@ -143,7 +188,17 @@ C_conditional = dcc.estimate()
 
 ### Devolatization
 
-#### GARCH-based Volatility Estimation
+#### EWMA Volatility Estimation (Used in Main Study)
+
+```python
+import pandas as pd
+
+# 60-day exponentially weighted moving average
+vol60 = rets.ewm(60).std() * np.sqrt(252) + 0.01
+# The 0.01 floor prevents division by near-zero values
+```
+
+#### GARCH-based Volatility Estimation (Optional)
 
 ```python
 from core.devolatizer import fit_garch_and_get_std
@@ -164,29 +219,69 @@ D = fit_garch_and_get_std(
 ```
 .
 ├── core/
-│   ├── contional_estimator.py    # Conditional covariance estimators
-│   ├── unconditional_estimator.py  # Unconditional covariance estimators
+│   ├── contional_estimator.py    # Conditional covariance estimators (DCC)
+│   ├── unconditional_estimator.py  # Unconditional covariance estimators (LS, QIS, AO)
 │   └── devolatizer.py            # GARCH-based devolatization
 ├── test/
 │   ├── conditional_estimator_test.py
 │   ├── unconditional_estimator_test.py
 │   └── devolatizer_test.py
+├── main.ipynb                    # Main empirical study (CRSP data, backtests)
 ├── example/
-│   └── example.ipynb             # Example notebooks
-└── utils/
-    └── preprocess.py             # Data preprocessing utilities
+│   └── example.ipynb             # Additional example notebooks
+├── utils/
+│   └── preprocess.py             # Data preprocessing utilities
+└── MastersProjectTemplate.tex   # LaTeX paper documenting the study
 ```
+
+## Empirical Results
+
+Our study evaluates three unconditional covariance estimators (LS, QIS, AO) as DCC priors using daily returns from the 500 largest U.S. equities (2000-2024) from the CRSP database.
+
+### Unconstrained Portfolio Results
+
+| Method | Sharpe Ratio | Cumulative Return | Max Drawdown | Turnover | Gross Leverage |
+|--------|-------------|-------------------|--------------|----------|----------------|
+| **LS** | **1.58** | **81.5%** | **-3.8%** | 0.27 | 3.39 |
+| QIS | 1.41 | 66.0% | -3.8% | 0.31 | 3.81 |
+| AO | 1.02 | 37.9% | -3.2% | 0.50 | 5.49 |
+
+### Long-Only Portfolio Results
+
+| Method | Sharpe Ratio | Cumulative Return | Max Drawdown | Turnover |
+|--------|-------------|-------------------|--------------|----------|
+| LS | 0.89 | 372.6% | -30.6% | 0.073 |
+| QIS | 0.88 | 377.1% | -31.3% | 0.075 |
+| AO | 0.82 | 391.4% | -33.0% | 0.086 |
+
+**Key Findings:**
+- LS delivers the strongest risk-adjusted performance in unconstrained settings
+- QIS performs close to LS but requires slightly higher leverage and turnover
+- AO exhibits lowest volatility but underperforms due to aggressive rebalancing
+- In long-only portfolios, all three methods converge to similar performance
 
 ## Performance Optimization
 
-The `AO` estimator supports multiprocessing for faster computation on large datasets:
+The `AO` estimator supports multiprocessing and temporal sampling for faster computation on large datasets:
 
 ```python
-ao = AO(R, D, lookback_window=200)
-ao.fit(n_jobs=4)  # Use 4 parallel processes
+ao = AO(R, D, lookback_window=500)
+# Use sampling=10 to process every 10th time point
+# Use n_jobs=4 for parallel processing
+ao.fit(S_total, sampling=10, n_jobs=4)
 ```
 
-If `n_jobs=None` or `n_jobs<=1`, the estimator runs sequentially (default behavior).
+- `sampling`: Process every Nth time point to reduce computation (default: 1, i.e., all points)
+- `n_jobs`: Number of parallel processes (default: None, sequential processing)
+- If `n_jobs=None` or `n_jobs<=1`, the estimator runs sequentially
+
+## Data Requirements
+
+The main empirical study (`main.ipynb`) requires CRSP equity data:
+- Daily returns from CRSP database
+- Fields: `RET`, `TICKER`, `PRC`, `SHROUT`, `CFACSHR`, `CFACPR`, `SHRCD`, `date`
+- Data cleaning: Filters for common shares (SHRCD ∈ {10,11,12}), handles missing values
+- Universe: Top 500 stocks by market capitalization on 2000-01-03
 
 ## Testing
 
@@ -197,6 +292,13 @@ python test/unconditional_estimator_test.py
 python test/conditional_estimator_test.py
 python test/devolatizer_test.py
 ```
+
+## Implementation Notes
+
+- **Volatility Estimation**: The main study uses 60-day EWMA, not GARCH (GARCH is available but optional)
+- **Numerical Stability**: All covariance matrices are symmetrized; small eigenvalues are clipped at 1e-12
+- **DCC Optimization**: Uses SLSQP algorithm with constraints α ≥ 0, β ≥ 0, α + β ≤ 1
+- **Portfolio Optimization**: GMV portfolios use ridge regularization (1e-6) and Moore-Penrose pseudoinverse for numerical stability
 
 ## References
 
@@ -212,7 +314,10 @@ python test/devolatizer_test.py
 
 This project is part of the Baruch MFE Capstone program.
 
-## Author
+## Authors
 
-Baruch MFE Capstone Project
+- Yichen Li (yichen.li@baruch.cuny.edu)
+- Shuhao Liu (shuhao.liu@baruch.cuny.edu)
+
+Baruch MFE Capstone Project, 2024
 

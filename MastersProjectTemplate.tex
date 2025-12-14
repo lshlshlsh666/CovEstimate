@@ -90,13 +90,13 @@
 \title{\bf Comparison of 3 DCC-based Covariance Matrix Estimation Methods }
 
 \author{
-Yichen Li \footnote{Department of Mathematics, Baruch College, CUNY. {\tt  yichen.li@baruch.cuny.edu}}{\setcounter{footnote}{1}} , Shuhao Liu\footnote{Department of Mathematics, Baruch College, CUNY. {\tt  shuhao.liu@baruch.cuny.edu}}{\setcounter{footnote}{2}} \thanks{We wish to thank our hamsters Buster and Butch for their constant affection.}
+Yichen Li \footnote{Department of Mathematics, Baruch College, CUNY. {\tt  yichen.li@baruch.cuny.edu}}{\setcounter{footnote}{1}} , Shuhao Liu\footnote{Department of Mathematics, Baruch College, CUNY. {\tt  shuhao.liu@baruch.cuny.edu}}
 }
 
 %\date{This version: December 25, 2011}
 
 \maketitle\thispagestyle{empty}
- 
+
 %%***************************************************************************
 %%
 %%  Document begins here
@@ -106,7 +106,11 @@ Yichen Li \footnote{Department of Mathematics, Baruch College, CUNY. {\tt  yiche
 
 
 \begin{abstract}
-In this report, we describe our final project ....
+We compare three state-of-the-art unconditional covariance estimators---Linear Shrinkage (LS), Quadratic Inverse Shrinkage (QIS), and Average Oracle (AO)---as priors for the Dynamic Conditional Correlation (DCC) model in large-scale portfolio optimization. Using daily returns from the 500 largest U.S. equities from 2000 to 2024, we devolatize returns via exponentially weighted moving average volatility estimates, then apply each estimator to standardized returns. The resulting unconditional covariance matrices serve as targets in the DCC recursion, producing time-varying conditional covariance matrices for global minimum-variance (GMV) portfolio construction.
+
+Our empirical evaluation reveals that LS consistently delivers the strongest risk-adjusted performance in unconstrained settings, achieving an annualized Sharpe ratio of 1.58 with 81.5\% cumulative return and maximum drawdown of $-3.8$\%. QIS follows closely with a Sharpe ratio of 1.41 and 66.0\% cumulative return, while requiring slightly higher leverage and turnover. AO exhibits the lowest volatility (13 bps) but underperforms with a Sharpe ratio of 1.02 and 37.9\% cumulative return, largely due to aggressive rebalancing and higher leverage requirements. In long-only portfolios, the three methods converge to similar performance metrics, with cumulative returns clustering between 372\% and 391\%, indicating that covariance regularization primarily impacts unconstrained allocations.
+
+These findings suggest that LS (and by extension QIS) provides the most robust foundation for DCC-based portfolio optimization, while AO may require longer estimation windows or additional shrinkage to compete effectively. Our study represents the first comprehensive comparison of these modern estimators within the DCC framework using real market data.
 \end{abstract}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -120,30 +124,213 @@ In this report, we describe our final project ....
 \newpage
 \section{Introduction}
 
+Accurate estimation of covariance matrices is fundamental to portfolio optimization, risk management, and asset allocation. In high-dimensional settings where the number of assets $n$ is comparable to or exceeds the number of observations $T$, the sample covariance matrix becomes ill-conditioned and exhibits poor out-of-sample performance. This challenge is particularly acute in financial applications, where return series exhibit time-varying volatility and correlation structures.
 
 \subsection{Problem Description}
 
+We address the problem of estimating conditional covariance matrices for large-scale equity portfolios by combining unconditional covariance estimators with the Dynamic Conditional Correlation (DCC) framework of \cite{engle2002}. Specifically, we compare three state-of-the-art unconditional covariance estimators---Linear Shrinkage (LS) \cite{ledoit2004}, Quadratic Inverse Shrinkage (QIS) \cite{ledoit2019}, and Average Oracle (AO) \cite{bongiorno2024}---as priors for the DCC model.
+
+Our empirical evaluation uses daily returns from the 500 largest U.S. equities by market capitalization, spanning from 2000 to 2024. We first devolatize returns using exponentially weighted moving average (EWMA) volatility estimates, then apply each unconditional estimator to the standardized returns. The resulting covariance matrices serve as the unconditional correlation target $C$ in the DCC recursion, which produces time-varying conditional covariance matrices. These are subsequently used to construct global minimum-variance (GMV) portfolios, and we evaluate performance across multiple metrics including Sharpe ratio, maximum drawdown, turnover, and effective number of positions.
+
+The key research question is: which unconditional covariance estimator, when embedded in the DCC framework, delivers superior risk-adjusted returns and portfolio characteristics in both unconstrained and long-only settings?
+
 \subsection{Prior literature}
 
-\lipsum
+The literature on covariance matrix estimation has evolved along several dimensions. Early work by \cite{ledoit2004} introduced linear shrinkage as a practical method to improve the conditioning of sample covariance matrices by shrinking eigenvalues toward their mean. This approach preserves the eigenvectors of the sample covariance while reducing estimation noise, and has become a standard benchmark in portfolio optimization.
+
+More recently, \cite{ledoit2019} developed Quadratic Inverse Shrinkage (QIS), which applies nonlinear shrinkage in the inverse-eigenvalue domain using random matrix theory. QIS provides a consistent approximation to the oracle covariance matrix under Frobenius loss and has shown superior performance in high-dimensional settings where $n/T$ is not negligible.
+
+The Average Oracle (AO) method of \cite{bongiorno2024} takes a different approach by directly estimating oracle eigenvalues through temporal averaging. Rather than relying on asymptotic random matrix theory, AO exploits the time series structure of financial data by computing oracle eigenvalues as the projection of future covariance matrices onto current eigenvectors, then averaging these projections over time.
+
+For modeling time-varying correlations, \cite{engle2002} introduced the Dynamic Conditional Correlation (DCC) model, which extends univariate GARCH models to the multivariate setting. DCC decomposes the conditional covariance matrix into time-varying volatilities and a dynamic correlation matrix, allowing for parsimonious modeling of complex dependence structures. The model has been widely adopted in both academic research and industry practice.
+
+Our contribution lies in systematically comparing these three modern unconditional estimators within the DCC framework, using a large-scale empirical study with real market data. To our knowledge, this is the first comprehensive comparison of LS, QIS, and AO as DCC priors in a portfolio optimization context.
 
 
-% \begin{theorem}\label{thm:GreatTheorem}
-% For any given positive integer $n$, there exists at least one integer greater than $n$.
-% \end{theorem}
+\newpage
+\section{Model Framework and Covariance Estimators}
 
-% \begin{proof}
-% Consider $m=n+1$.     
-% \end{proof}
+Let $R_t \in \mathbb{R}^n$ denote the vector of asset returns at time $t$.
+Following standard practice in multivariate volatility modeling, we decompose
+the conditional covariance matrix as
+\begin{equation}
+H_t = D_t R_t D_t,
+\end{equation}
+where $D_t = \mathrm{diag}(\sigma_{1,t}, \dots, \sigma_{n,t})$ is the diagonal matrix
+of conditional standard deviations obtained from univariate GARCH(1,1) models, and
+$R_t$ is the conditional correlation matrix.
 
-% \begin{remark} 
-% Note just how brilliant Theorem \ref{thm:GreatTheorem} is!
-% \end{remark}
+Define the devolatilized (standardized) returns as
+\begin{equation}
+S_t = D_t^{-1} R_t.
+\end{equation}
+All unconditional covariance estimators considered below are applied to the
+standardized returns $\{S_t\}_{t=1}^T$.
 
-% We obtain
-% \begin{cor}
-% There exists an integer greater than 3.
-% \end{cor}
+\subsection{Dynamic Conditional Correlation (DCC)}
+
+The Dynamic Conditional Correlation (DCC) model of \cite{engle2002} specifies the
+dynamics of the correlation matrix through an auxiliary matrix $Q_t$:
+\begin{equation}
+Q_t = (1-\alpha-\beta) C
+      + \alpha S_t S_t^\top
+      + \beta Q_{t-1},
+\end{equation}
+where $C$ is the unconditional covariance matrix of $S_t$, and
+$\alpha, \beta \ge 0$ with $\alpha + \beta < 1$.
+
+The correlation matrix is obtained by standardizing $Q_t$:
+\begin{equation}
+R_t = \mathrm{diag}(Q_t)^{-1/2} \, Q_t \, \mathrm{diag}(Q_t)^{-1/2}.
+\end{equation}
+
+Parameters $(\alpha,\beta)$ are estimated by quasi-maximum likelihood, minimizing
+\begin{equation}
+\sum_{t=1}^T \left(
+\log \det R_t + S_t^\top R_t^{-1} S_t
+\right),
+\end{equation}
+subject to $\alpha \ge 0$, $\beta \ge 0$, and $\alpha+\beta \le 1$.
+This corresponds exactly to the implementation of the \texttt{DCCEstimator}
+class, where the recursion and likelihood are evaluated sequentially.
+
+\subsection{Linear Shrinkage (LS)}
+
+The linear shrinkage estimator of \cite{ledoit2004} improves the conditioning
+of the sample covariance matrix by shrinking its eigenvalues toward their mean.
+Let
+\begin{equation}
+\hat C = V \Lambda V^\top
+\end{equation}
+be the eigen-decomposition of the sample covariance matrix of $S_t$.
+The linear shrinkage estimator is defined as
+\begin{equation}
+\hat C^{\mathrm{LS}}
+= V \left[ \rho \bar\lambda I + (1-\rho)\Lambda \right] V^\top,
+\end{equation}
+where $\bar\lambda = \frac{1}{n}\mathrm{tr}(\Lambda) = \frac{1}{n}\sum_{i=1}^n \lambda_i$ and $\rho \in [0,1]$
+is a user-specified shrinkage intensity.
+This estimator reduces estimation noise while preserving the eigenvectors of
+the sample covariance matrix, as implemented in the \texttt{LS} class.
+
+\subsection{Quadratic Inverse Shrinkage (QIS)}
+
+Quadratic Inverse Shrinkage (QIS) is a nonlinear eigenvalue shrinkage method
+derived from random matrix theory \cite{ledoit2019}.
+Let $\lambda_1,\dots,\lambda_n$ denote the eigenvalues of the sample covariance
+matrix of $S_t$, and define $q = n/T$.
+
+QIS operates in the inverse-eigenvalue domain and estimates oracle-adjusted
+eigenvalues $\{\delta_i\}_{i=1}^n$ via
+\begin{equation}
+\delta_i^{-1}
+=
+(1-q)^2 \lambda_i^{-1}
++ 2q(1-q)\lambda_i^{-1}\hat\theta(\lambda_i^{-1})
++ q^2 \lambda_i^{-1} A_{\hat\theta}^2(\lambda_i^{-1}),
+\end{equation}
+where $\hat\theta(\cdot)$ is a smoothed estimator of the Stieltjes transform
+and $A_{\hat\theta}^2(\cdot)$ denotes the squared amplitude of the corresponding
+analytic signal, computed using a bandwidth parameter $h = n^{-1/3}$.
+
+The QIS covariance estimator is then given by
+\begin{equation}
+\hat C^{\mathrm{QIS}} = V \,\mathrm{diag}(\delta_1,\dots,\delta_n)\, V^\top.
+\end{equation}
+This estimator provides a consistent approximation to the oracle covariance
+matrix under Frobenius loss and is implemented in the \texttt{QIS} class.
+
+\subsection{Average Oracle (AO)}
+
+The Average Oracle (AO) estimator \cite{bongiorno2024} directly
+approximates the oracle eigenvalues by exploiting temporal information.
+Let $\hat C_t$ denote the rolling sample covariance matrix of $S_t$ computed
+over a lookback window of length $w$.
+
+For each time $t$, let $\{v_{i,t}\}_{i=1}^n$ be the eigenvectors of $\hat C_t$.
+The oracle eigenvalue associated with $v_{i,t}$ is defined as
+\begin{equation}
+d_{i,t} = v_{i,t}^\top \hat C_{t+1} v_{i,t}.
+\end{equation}
+
+The AO estimator averages these oracle eigenvalues over time:
+\begin{equation}
+\bar d_i = \frac{1}{T'} \sum_{t} d_{i,t},
+\end{equation}
+where $T'$ is the number of time points used in the averaging process.
+In practice, we may sample the time indices at regular intervals to reduce
+computational cost.
+
+Given the current eigenvectors $V_t$ of $\hat C_t$, the AO covariance estimator is
+\begin{equation}
+\hat C^{\mathrm{AO}}_t = V_t \,\mathrm{diag}(\bar d_1,\dots,\bar d_n)\, V_t^\top.
+\end{equation}
+This approach bypasses explicit random matrix theory and directly estimates the
+oracle spectrum through temporal averaging, as implemented in the
+\texttt{AO} class with optional multiprocessing support for large datasets.
+
+\subsection{Implementation Details and Practical Considerations}
+
+Several implementation details are crucial for the stable integration of
+unconditional covariance estimators into the DCC framework.
+
+\paragraph{Volatility estimation and devolatization.}
+The devolatilization step plays a central role in separating marginal volatility
+dynamics from correlation dynamics. In our empirical study, we use a 60-day
+exponentially weighted moving average (EWMA) to estimate conditional volatilities:
+$\sigma_{i,t} = \sqrt{\text{EWMA}_{60}(R_{i,t}^2)} \times \sqrt{252} + 0.01$,
+where the floor of 0.01 prevents division by near-zero values and the $\sqrt{252}$
+factor annualizes daily volatilities. While our codebase also provides GARCH-based
+devolatization via the \texttt{fit\_garch\_and\_get\_std} function, which handles
+internal rescaling by dividing conditional volatilities by the model scale parameter,
+the EWMA approach is computationally efficient and sufficient for large-scale
+portfolios. The standardized returns $S_t = D_t^{-1} R_t$ are then used as inputs
+to all unconditional covariance estimators.
+
+\paragraph{Unconditional target consistency.}
+All unconditional estimators (LS, QIS, AO) are applied to the same standardized
+returns and serve exclusively as long-run targets $C$ in the DCC recursion.
+Once estimated, $C$ is held fixed throughout the DCC likelihood optimization,
+which uses the SLSQP algorithm to minimize the quasi-log-likelihood function
+subject to constraints $\alpha \ge 0$, $\beta \ge 0$, and $\alpha + \beta \le 1$.
+This design choice follows the original DCC specification and avoids repeated
+re-estimation of high-dimensional covariance matrices inside the recursion,
+which would otherwise introduce additional noise and computational burden.
+
+\paragraph{DCC recursion implementation.}
+The DCC update uses the outer product $\text{outer}(s_t, s_t) = s_t s_t^\top$ to
+compute the rank-one update in equation (3), which is numerically more stable
+than explicit matrix multiplication for sparse or near-zero standardized returns.
+The correlation matrix $R_t$ is obtained by normalizing $Q_t$ using element-wise
+diagonal extraction: $R_t = \text{diag}(Q_t)^{-1/2} Q_t \text{diag}(Q_t)^{-1/2}$,
+where the square root and inverse operations are applied only to the diagonal elements
+before broadcasting. This approach avoids full matrix inversions and maintains
+numerical precision even when $Q_t$ has small off-diagonal elements.
+
+\paragraph{Eigenstructure preservation and AO sampling.}
+Both LS and QIS are rotation-invariant estimators that preserve the eigenvectors
+of the sample covariance matrix while modifying its spectrum. As a result, the
+conditioning and stability of the DCC updates are governed primarily by the
+regularized eigenvalues rather than changes in factor directions. In contrast,
+the AO estimator reconstructs the covariance matrix using rolling eigenvectors,
+which makes its performance sensitive to eigenvector instability and finite-sample
+effects when the lookback window is short. To mitigate computational cost, our
+AO implementation supports temporal sampling (e.g., \texttt{sampling=10} processes
+every 10th time point) and optional multiprocessing via the \texttt{n\_jobs}
+parameter, allowing parallel evaluation of oracle eigenvalue projections across
+multiple CPU cores.
+
+\paragraph{Numerical stability and regularization.}
+All estimated covariance matrices are symmetrized via $0.5 \times (C + C^\top)$
+to correct for floating-point rounding errors. Small eigenvalues are clipped
+at a numerical floor (e.g., $10^{-12}$ in QIS) to prevent degeneracy in matrix
+inversion during portfolio optimization. In the GMV backtest, we add a ridge
+regularization term $\text{ridge} \times I$ (typically $10^{-6}$) to the conditional
+covariance matrix before inversion, and use the Moore--Penrose pseudoinverse
+\texttt{np.linalg.pinv} to handle near-singular cases. Volatility estimates are
+further clipped at $10^{-6}$ to avoid degenerate covariance slices. These safeguards
+are particularly important for nonlinear shrinkage methods and rolling estimators,
+where extreme eigenvalue realizations may arise in finite samples.
 
 
 \newpage
@@ -199,7 +386,7 @@ AO & 0.000086 & 0.0013 & 1.0229 & 0.3785 & -0.0319 & 0.4977 & 5.4864 & 4.1407 \\
 \end{figure}
 
 
-Coupling the DCC updater with the Ledoit--Wolf linear shrinkage prior (LS) produces the strongest risk-adjusted profile in the unconstrained test. As shown in Table~\ref{tab:backtest}, LS earns a mean daily return of 15.9 bps with 16 bps of volatility, yielding an annualized Sharpe ratio of 1.58 and an 81.5\% cumulative gain. Its maximum drawdown remains contained at $-3.8$\%, turnover averages only 0.27, and gross leverage is 3.39 with an effective breadth of 10.8 names. Quadratic Inverse Shrinkage (QIS) trails LS modestly: it delivers a 1.41 Sharpe and 66.0\% cumulative return, but requires slightly higher leverage (3.81) and turnover (0.31) while concentrating the portfolio into 8.6 effective positions. The Average Oracle (AO) prior is most conservative in terms of volatility (13 bps) yet posts the lowest Sharpe (1.02) and cumulative gain (37.9\%), largely because the rolling lookback induces a heavier rebalancing load (turnover 0.50) and higher gross leverage (5.49).
+Coupling the DCC updater with the Ledoit--Wolf linear shrinkage prior (LS) \cite{ledoit2004} produces the strongest risk-adjusted profile in the unconstrained test. As shown in Table~\ref{tab:backtest}, LS earns a mean daily return of 15.9 bps with 16 bps of volatility, yielding an annualized Sharpe ratio of 1.58 and an 81.5\% cumulative gain. Its maximum drawdown remains contained at $-3.8$\%, turnover averages only 0.27, and gross leverage is 3.39 with an effective breadth of 10.8 names. Quadratic Inverse Shrinkage (QIS) trails LS modestly: it delivers a 1.41 Sharpe and 66.0\% cumulative return, but requires slightly higher leverage (3.81) and turnover (0.31) while concentrating the portfolio into 8.6 effective positions. The Average Oracle (AO) prior is most conservative in terms of volatility (13 bps) yet posts the lowest Sharpe (1.02) and cumulative gain (37.9\%), largely because the rolling lookback induces a heavier rebalancing load (turnover 0.50) and higher gross leverage (5.49).
 
 
 \begin{table}[h]
@@ -247,6 +434,59 @@ The DCC experiments reveal that the Ledoit--Wolf linear shrinkage (LS) prior con
 
 Quadratic Inverse Shrinkage (QIS) operates close to LS across both experiments, confirming that stronger eigenvalue regularization narrows the gap when leverage is capped. QIS, however, requires slightly higher gross leverage and turnover to reach comparable returns, reflecting its heavier reliance on large-cap exposures. The Average Oracle (AO) prior, although theoretically appealing, underperforms because its rolling estimation window feeds noisier covariance slices into the DCC updater. The estimator appears data-hungry: once the sample thins, AO must rebalance aggressively (turnover near 0.50) and leans on leverage, which erodes its Sharpe ratio despite the lowest standalone volatility. Overall, the evidence recommends LS (and, by extension, QIS) for production, while AO would likely need either longer histories or additional shrinkage before it can compete.
 
+\section*{Limitations and Future Research}
+
+Several limitations of the present study point to promising directions for
+future research.
+
+First, the Average Oracle (AO) estimator appears to be particularly sensitive
+to the length of the estimation window and the stability of the eigenstructure.
+While AO is theoretically appealing as a direct approximation to oracle
+eigenvalues, its rolling implementation can suffer from eigenvector switching
+and finite-sample noise in large but not asymptotic samples. In our implementation,
+we mitigate computational cost through temporal sampling (processing every 10th
+time point) and multiprocessing, but the fundamental sensitivity to window length
+remains. Future work could explore hybrid variants that combine AO with additional
+spectral shrinkage (e.g., applying LS or QIS to the AO-estimated eigenvalues),
+subspace aggregation techniques, or adaptive window selection based on eigenvector
+stability metrics to improve robustness.
+
+Second, our analysis treats the unconditional covariance target $C$ as fixed
+throughout the DCC recursion. Although this follows the standard DCC
+specification and avoids computational overhead, allowing $C$ itself to evolve
+slowly over time (e.g., via exponential smoothing or regime-switching models)
+may further improve adaptability to long-term structural changes in correlation
+regimes. Investigating time-varying or regime-dependent unconditional targets,
+particularly during market stress periods, remains an open avenue for research.
+
+Third, we focus on global minimum-variance portfolios as a clean and interpretable
+benchmark that isolates the impact of covariance estimation from expected return
+forecasting. Extending the comparison to expected-return-sensitive allocations
+(e.g., mean-variance optimization with factor models), factor-based constraints
+(e.g., sector or style neutrality), or transaction-cost-aware optimization
+would provide additional insight into how covariance regularization interacts
+with more complex investment objectives. The higher turnover observed for AO
+suggests that transaction cost considerations may further widen the performance
+gap between estimators.
+
+Fourth, our volatility estimation uses a simple EWMA approach with a fixed
+60-day window. While computationally efficient, this may not capture the full
+richness of volatility dynamics compared to GARCH models or more sophisticated
+volatility forecasting methods. Future work could investigate whether the relative
+ranking of unconditional estimators changes when paired with different volatility
+estimation techniques, or whether joint estimation of volatility and correlation
+structures yields additional benefits.
+
+Finally, while our empirical study covers a long historical sample (2000--2024)
+of U.S. equities from the CRSP database, the relative performance of the
+estimators may vary across asset classes, market microstructures, and sampling
+frequencies. Applying the same DCC-based framework to futures, foreign exchange,
+fixed income, or intraday data represents a natural extension. Additionally,
+examining performance during specific market regimes (e.g., financial crises,
+low-volatility periods, or high-correlation environments) could reveal
+regime-dependent strengths and weaknesses of each estimator.
+
+
 \section*{Acknowledgments}
 
 % We are very grateful to Jane Brown and Janice Smith.
@@ -261,17 +501,34 @@ Quadratic Inverse Shrinkage (QIS) operates close to LS across both experiments, 
 
 \begin{thebibliography}{}
 
+\bibitem{engle2002}
+{Engle, R.},
+{Dynamic conditional correlation: A simple class of multivariate generalized autoregressive conditional heteroskedasticity models},
+{\it Journal of Business \& Economic Statistics}, \textbf{20}(3), 339--350 (2002).
 
-% \bibitem{jimbook} { Gatheral, J.},
-% {The Volatility Surface: A Practitioner's Guide},
-% {Wiley Finance} (2006).
+\bibitem{ledoit2004}
+{Ledoit, O.} and {Wolf, M.},
+{A well-conditioned estimator for large-dimensional covariance matrices},
+{\it Journal of Multivariate Analysis}, \textbf{88}(2), 365--411 (2004).
 
-% \bibitem{ghlow}
-% { Gatheral, J.}, { Hsu, E.P.}, { Laurence, P.}, { Ouyang, C.}, and { Wang, T.-H.},
-% {Asymptotics of implied volatility in local volatility models},
-% {\it Mathematical Finance} (2011) forthcoming.
+\bibitem{ledoit2019}
+{Ledoit, O.} and {Wolf, M.},
+{Quadratic shrinkage for large covariance matrices},
+{\it Bernoulli}, \textbf{25}(4B), 3533--3565 (2019).
 
+\bibitem{bongiorno2024}
+{Bongiorno, E. G.} and {Challet, D.},
+{Covariance matrix filtering and portfolio optimization},
+{\it arXiv preprint arXiv:2111.13109} (2024).
 
+\bibitem{jimbook} { Gatheral, J.},
+{The Volatility Surface: A Practitioner's Guide},
+{Wiley Finance} (2006).
+
+\bibitem{ghlow}
+{ Gatheral, J.}, { Hsu, E.P.}, { Laurence, P.}, { Ouyang, C.}, and { Wang, T.-H.},
+{Asymptotics of implied volatility in local volatility models},
+{\it Mathematical Finance} (2011) forthcoming.
 
 \end{thebibliography}
 
