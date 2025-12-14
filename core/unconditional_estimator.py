@@ -127,7 +127,7 @@ class AO(UnconditionalEstimator):
         self.lookback_window = lookback_window
         self.d: np.ndarray = None
 
-    def fit(self, S: np.ndarray | None = None, n_jobs: int | None = None) -> "AO":
+    def fit(self, S: np.ndarray | None = None, n_jobs: int | None = None, sampling: int = 10) -> "AO":
         """
         Fit the AO model -- Need to use a longer time period to estimate the average oracle eigenvalues.
         However, if S is not provided, just use self.S to fit the model.
@@ -138,11 +138,13 @@ class AO(UnconditionalEstimator):
             Devolatilized return matrix. If None, use self.S.
         n_jobs : int | None
             Number of parallel jobs. If None, use all available CPUs.
+        sampling : int
+            Sampling interval to reduce computation. Default is 10.
         """
         if S is None:
             S = self.S
         rolling_cov = pd.DataFrame(S).rolling(window=self.lookback_window).cov().loc[self.lookback_window :]
-        indices = rolling_cov.index.get_level_values(0).unique()[:-1]
+        indices = rolling_cov.index.get_level_values(0).unique()[:-1:sampling]
 
         # Convert rolling_cov to numpy arrays for multiprocessing
         # Store as list of tuples (cov_now, cov_next) for easier parallel processing

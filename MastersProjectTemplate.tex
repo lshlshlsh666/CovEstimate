@@ -11,6 +11,7 @@
 \usepackage[normalem]{ulem}
   
 \usepackage{exscale}
+\usepackage{booktabs}
 \usepackage{amsfonts}
 \usepackage[usenames,dvipsnames]{color} % load color package
 
@@ -81,17 +82,18 @@
 \newcommand{\dt}{\Delta t}
 \newcommand{\tr}{{\rm tr}}
 
+\usepackage{lipsum}
 \begin{document}
 
 
 
-\title{\bf Our brilliant masters project final report}
+\title{\bf Comparison of 3 DCC-based Covariance Matrix Estimation Methods }
 
-\author{John Brown\footnote{Department of Mathematics, Baruch College, CUNY. {\tt  john.brown@baruch.cuny.edu}}{\setcounter{footnote}{1}} , James Smith\footnote{Department of Mathematics, Baruch College, CUNY. {\tt  James.Smith@baruch.cuny.edu}}{\setcounter{footnote}{2}} \thanks{We wish to thank our hamsters Buster and Butch for their constant affection.}
+\author{
+Yichen Li \footnote{Department of Mathematics, Baruch College, CUNY. {\tt  yichen.li@baruch.cuny.edu}}{\setcounter{footnote}{1}} , Shuhao Liu\footnote{Department of Mathematics, Baruch College, CUNY. {\tt  shuhao.liu@baruch.cuny.edu}}{\setcounter{footnote}{2}} \thanks{We wish to thank our hamsters Buster and Butch for their constant affection.}
 }
 
 %\date{This version: December 25, 2011}
-
 
 \maketitle\thispagestyle{empty}
  
@@ -115,48 +117,125 @@ In this report, we describe our final project ....
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\newpage
 \section{Introduction}
 
 
+\subsection{Problem Description}
 
 \subsection{Prior literature}
 
-
-\section{Our main result}
-
-\begin{theorem}\label{thm:GreatTheorem}
-For any given positive integer $n$, there exists at least one integer greater than $n$.
-\end{theorem}
-
-\begin{proof}
-Consider $m=n+1$.     
-\end{proof}
-
-\begin{remark} 
-Note just how brilliant Theorem \ref{thm:GreatTheorem} is!
-\end{remark}
-
-We obtain
-\begin{cor}
-There exists an integer greater than 3.
-\end{cor}
-
-\section{Another result}
+\lipsum
 
 
+% \begin{theorem}\label{thm:GreatTheorem}
+% For any given positive integer $n$, there exists at least one integer greater than $n$.
+% \end{theorem}
+
+% \begin{proof}
+% Consider $m=n+1$.     
+% \end{proof}
+
+% \begin{remark} 
+% Note just how brilliant Theorem \ref{thm:GreatTheorem} is!
+% \end{remark}
+
+% We obtain
+% \begin{cor}
+% There exists an integer greater than 3.
+% \end{cor}
+
+
+\newpage
 \section{Numerical experiment}
+
+
+\subsection{Data Description}
+
+We ingest the daily CRSP equity data from WRDS database and clean it in several stages. Non-numeric return flags (``B'' and ``C'') in \texttt{RET} are mapped to missing values before casting the column to floating point. Observations without a valid \texttt{TICKER} or \texttt{PRC} are discarded, and market capitalization is formed as $|\text{PRC}| \times \text{SHROUT} \times (\text{CFACSHR}/\text{CFACPR})$. We retain only common shares (\texttt{SHRCD} $\in \{10,11,12\}$) to exclude preferred or foreign listings. The panel is reshaped into a \texttt{date} $\times$ \texttt{PERMNO} return matrix, and we restrict the asset universe to the 500 largest firms by market capitalization on 3 January 2000. Returns are scaled by an exponentially weighted 60-day volatility estimator multiplied by $\sqrt{252}$ with a 1\% floor, which stabilizes the subsequent conditional covariance estimation. After a 60-day burn-in, data through 1 January 2010 define the training set, while the remaining history provides the out-of-sample evaluation window. The notebook also aligns the realized volatilities with the backtest dates and clips them at $10^{-6}$ to avoid degenerate covariance slices before running the portfolio backtests.
+
+\subsection{Metric}
+
+Each covariance prior feeds into a Dynamic Conditional Correlation (DCC) updater that delivers a one-step conditional covariance used to rebalance a global minimum-variance (GMV) portfolio. We evaluate eight complementary metrics that are reported in Table~\ref{tab:backtest}:
+\begin{itemize}
+	\item \textbf{ME} --- mean daily portfolio return $\E[r_t]$.
+	\item \textbf{STD} --- standard deviation of daily returns $\sqrt{\var(r_t)}$.
+	\item \textbf{SR} --- annualized Sharpe ratio $\frac{\E[r_t]}{\sqrt{\var(r_t)}}\sqrt{252}$.
+	\item \textbf{Return} --- total compounded performance $(\prod_t (1+r_t))-1$ over the test window.
+	\item \textbf{Drawdown} --- worst peak-to-trough loss $\min_t \left(\frac{P_t}{\max_{s\le t} P_s}-1\right)$ where $P_t$ is cumulative wealth.
+	\item \textbf{Turnover} --- time-average of the absolute day-over-day weight change $\|w_t-w_{t-1}\|_1$.
+	\item \textbf{GrossLev} --- average gross leverage $\|w_t\|_1$ capturing total capital usage.
+	\item \textbf{EffN} --- effective number of active bets, computed as $1/\sum_i w_{t,i}^2$ and averaged over time.
+\end{itemize}
+For the long-only variant in Table~\ref{tab:longonly_backtest}, the optimizer clips negative weights at zero and renormalizes the remaining positive allocation, leading to a fixed gross leverage of 1 while preserving the same evaluation procedure for the other statistics.
+
+\subsection{Result}
+
+
+\begin{table}[h]
+\small
+\centering    
+\begin{tabular}{lrrrrrrrr}
+\toprule
+ & ME & STD & SR & Return & Drawdown & Turnover & GrossLev & EffN \\
+\midrule
+LS & 0.000159 & 0.0016 & 1.5794 & 0.8153 & -0.0383 & 0.2706 & 3.3850 & 10.8039 \\
+QIS & 0.000135 & 0.0015 & 1.4126 & 0.6598 & -0.0376 & 0.3077 & 3.8143 & 8.6035 \\
+AO & 0.000086 & 0.0013 & 1.0229 & 0.3785 & -0.0319 & 0.4977 & 5.4864 & 4.1407 \\
+\bottomrule
+% \centering
+\end{tabular}
+\caption{Statistics of backtest result}
+\label{tab:backtest}
+\end{table}
+
 
 \begin{figure}[htb!]
 \begin{center}
-\includegraphics{SVIarb}
-\caption{This is a graph of something}
-\label{fig:someGraph}
+\includegraphics[width=.6\linewidth]{backtest.png}
+\caption{Backtest result}
+\label{fig:backtest}
 \end{center}
 \end{figure}
 
 
+Coupling the DCC updater with the Ledoit--Wolf linear shrinkage prior (LS) produces the strongest risk-adjusted profile in the unconstrained test. As shown in Table~\ref{tab:backtest}, LS earns a mean daily return of 15.9 bps with 16 bps of volatility, yielding an annualized Sharpe ratio of 1.58 and an 81.5\% cumulative gain. Its maximum drawdown remains contained at $-3.8$\%, turnover averages only 0.27, and gross leverage is 3.39 with an effective breadth of 10.8 names. Quadratic Inverse Shrinkage (QIS) trails LS modestly: it delivers a 1.41 Sharpe and 66.0\% cumulative return, but requires slightly higher leverage (3.81) and turnover (0.31) while concentrating the portfolio into 8.6 effective positions. The Average Oracle (AO) prior is most conservative in terms of volatility (13 bps) yet posts the lowest Sharpe (1.02) and cumulative gain (37.9\%), largely because the rolling lookback induces a heavier rebalancing load (turnover 0.50) and higher gross leverage (5.49).
 
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrrrrrrrr}
+\toprule
+ & ME & STD & SR & Return & Drawdown & Turnover & GrossLev & EffN \\
+\midrule
+LS & 0.000443 & 0.007868 & 0.8931 & 3.7261 & -0.3064 & 0.0731 & 1.000 & 64.3939 \\
+QIS & 0.000447 & 0.008109 & 0.8752 & 3.7711 & -0.3133 & 0.0747 & 1.000 & 63.4054 \\
+AO & 0.000462 & 0.008934 & 0.8208 & 3.9135 & -0.3295 & 0.0858 & 1.000 & 62.3442 \\
+\bottomrule
+\end{tabular}
+\caption{Statistics of backtest result (long only)}
+\label{tab:longonly_backtest}
+\end{table}
+
+
+
+\begin{figure}[htb!]
+\begin{center}
+\includegraphics[width=.6\linewidth]{longonly.png}
+\caption{Backtest result (long only)}
+\label{fig:longonly_backtest}
+\end{center}
+\end{figure}
+
+
+The long-only experiment in Table~\ref{tab:longonly_backtest} compresses the dispersion because the simplex constraint dominates the solution. All three priors post similar mean returns (44--46 bps), volatilities (0.79--0.89\%), and Sharpe ratios (0.82--0.89), while cumulative gains cluster between 372\% and 391\%. With shorts disallowed, gross leverage collapses to 1 and the effective number of positions stabilizes near the 60s, indicating broad diversification. AO enjoys the highest compounded return (391\%) but at the cost of the deepest drawdown ($-33$\%) and the largest turnover (0.086). LS and QIS remain nearly indistinguishable across all long-only metrics, underscoring that covariance regularization primarily influences the unconstrained GMV allocation and has muted impact once the portfolio is forced to be long-only.
+
+
+\newpage
 \section{Summary and conclusion}
+
+
 
 
 %\appendix
@@ -164,10 +243,13 @@ There exists an integer greater than 3.
 
 
 
+The DCC experiments reveal that the Ledoit--Wolf linear shrinkage (LS) prior consistently delivers the most attractive risk-adjusted profile. In the unconstrained backtest, LS balances return and risk by pairing a modest 16 bps daily volatility with the highest Sharpe ratio (1.58) and the shallowest drawdowns, while also keeping turnover below 0.30. The same prior remains competitive in the long-only setting, where the simplex constraint compresses performance dispersion but LS still matches or exceeds the other priors on every reported metric.
+
+Quadratic Inverse Shrinkage (QIS) operates close to LS across both experiments, confirming that stronger eigenvalue regularization narrows the gap when leverage is capped. QIS, however, requires slightly higher gross leverage and turnover to reach comparable returns, reflecting its heavier reliance on large-cap exposures. The Average Oracle (AO) prior, although theoretically appealing, underperforms because its rolling estimation window feeds noisier covariance slices into the DCC updater. The estimator appears data-hungry: once the sample thins, AO must rebalance aggressively (turnover near 0.50) and leans on leverage, which erodes its Sharpe ratio despite the lowest standalone volatility. Overall, the evidence recommends LS (and, by extension, QIS) for production, while AO would likely need either longer histories or additional shrinkage before it can compete.
 
 \section*{Acknowledgments}
 
-We are very grateful to Jane Brown and Janice Smith.
+% We are very grateful to Jane Brown and Janice Smith.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -180,14 +262,14 @@ We are very grateful to Jane Brown and Janice Smith.
 \begin{thebibliography}{}
 
 
-\bibitem{jimbook} { Gatheral, J.},
-{The Volatility Surface: A Practitioner's Guide},
-{Wiley Finance} (2006).
+% \bibitem{jimbook} { Gatheral, J.},
+% {The Volatility Surface: A Practitioner's Guide},
+% {Wiley Finance} (2006).
 
-\bibitem{ghlow}
-{ Gatheral, J.}, { Hsu, E.P.}, { Laurence, P.}, { Ouyang, C.}, and { Wang, T.-H.},
-{Asymptotics of implied volatility in local volatility models},
-{\it Mathematical Finance} (2011) forthcoming.
+% \bibitem{ghlow}
+% { Gatheral, J.}, { Hsu, E.P.}, { Laurence, P.}, { Ouyang, C.}, and { Wang, T.-H.},
+% {Asymptotics of implied volatility in local volatility models},
+% {\it Mathematical Finance} (2011) forthcoming.
 
 
 
