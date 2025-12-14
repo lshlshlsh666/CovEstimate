@@ -2,6 +2,8 @@
 
 A comprehensive Python library for estimating covariance matrices in financial applications, implementing both unconditional and conditional covariance estimation methods. This project compares three state-of-the-art unconditional covariance estimators—Linear Shrinkage (LS), Quadratic Inverse Shrinkage (QIS), and Average Oracle (AO)—as priors for the Dynamic Conditional Correlation (DCC) model in large-scale portfolio optimization.
 
+**Note**: This project is a replication and Python implementation of the methodology presented in [Bongiorno & Challet (2024)](https://www.tandfonline.com/doi/full/10.1080/14697688.2024.2372053), which compares DCC-based covariance estimation methods using different unconditional priors.
+
 **Key Finding**: Our empirical evaluation on 500 U.S. equities (2000-2024) reveals that LS consistently delivers the strongest risk-adjusted performance in unconstrained settings, achieving an annualized Sharpe ratio of 1.58 with 81.5% cumulative return. This project is part of the Baruch MFE Capstone.
 
 ## Features
@@ -309,6 +311,8 @@ python test/devolatizer_test.py
 - **LS Method**: Ledoit, O., & Wolf, M. (2004). A well-conditioned estimator for large-dimensional covariance matrices. *Journal of Multivariate Analysis*, 88(2), 365-411.
 
 - **AO Method**: Bongiorno, E. G., & Challet, D. (2024). Covariance matrix filtering and portfolio optimization. *arXiv preprint arXiv:2111.13109*.
+
+- **Original Study (Replicated)**: Bongiorno, E. G., & Challet, D. (2024). Comparison of DCC-based covariance matrix estimation methods. *Quantitative Finance*, 24(?), ?-?. [https://www.tandfonline.com/doi/full/10.1080/14697688.2024.2372053](https://www.tandfonline.com/doi/full/10.1080/14697688.2024.2372053)
 
 ## License
 

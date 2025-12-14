@@ -14,6 +14,7 @@
 \usepackage{booktabs}
 \usepackage{amsfonts}
 \usepackage[usenames,dvipsnames]{color} % load color package
+\usepackage{url}
 
 \textwidth=6.0in \textheight=8.8in \hoffset=-0.2in
 \voffset=-0.85in
@@ -144,7 +145,7 @@ The Average Oracle (AO) method of \cite{bongiorno2024} takes a different approac
 
 For modeling time-varying correlations, \cite{engle2002} introduced the Dynamic Conditional Correlation (DCC) model, which extends univariate GARCH models to the multivariate setting. DCC decomposes the conditional covariance matrix into time-varying volatilities and a dynamic correlation matrix, allowing for parsimonious modeling of complex dependence structures. The model has been widely adopted in both academic research and industry practice.
 
-Our contribution lies in systematically comparing these three modern unconditional estimators within the DCC framework, using a large-scale empirical study with real market data. To our knowledge, this is the first comprehensive comparison of LS, QIS, and AO as DCC priors in a portfolio optimization context.
+Our contribution lies in systematically comparing these three modern unconditional estimators within the DCC framework, using a large-scale empirical study with real market data. This work represents a replication and Python implementation of the methodology presented in \cite{bongiorno2024quant}, which compares DCC-based covariance estimation methods using different unconditional priors. We provide a clean, modular implementation of the estimators and extend the empirical analysis to include additional performance metrics and robustness checks.
 
 
 \newpage
@@ -520,6 +521,12 @@ regime-dependent strengths and weaknesses of each estimator.
 {Bongiorno, E. G.} and {Challet, D.},
 {Covariance matrix filtering and portfolio optimization},
 {\it arXiv preprint arXiv:2111.13109} (2024).
+
+\bibitem{bongiorno2024quant}
+{Bongiorno, E. G.} and {Challet, D.},
+{Comparison of DCC-based covariance matrix estimation methods},
+{\it Quantitative Finance}, \textbf{24}(?), ?--? (2024).
+\url{https://www.tandfonline.com/doi/full/10.1080/14697688.2024.2372053}
 
 \bibitem{jimbook} { Gatheral, J.},
 {The Volatility Surface: A Practitioner's Guide},
