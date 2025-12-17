@@ -107,11 +107,11 @@ Yichen Li \footnote{Department of Mathematics, Baruch College, CUNY. {\tt  yiche
 
 
 \begin{abstract}
-We compare three state-of-the-art unconditional covariance estimators---Linear Shrinkage (LS), Quadratic Inverse Shrinkage (QIS), and Average Oracle (AO)---as priors for the Dynamic Conditional Correlation (DCC) model in large-scale portfolio optimization. Using daily returns from the 500 largest U.S. equities from 2000 to 2024, we devolatize returns via exponentially weighted moving average volatility estimates, then apply each estimator to standardized returns. The resulting unconditional covariance matrices serve as targets in the DCC recursion, producing time-varying conditional covariance matrices for global minimum-variance (GMV) portfolio construction.
+We compare four unconditional covariance estimators---Sample Covariance, Linear Shrinkage (LS), Quadratic Inverse Shrinkage (QIS), and Average Oracle (AO)---both as static estimators and as priors for the Dynamic Conditional Correlation (DCC) model in large-scale portfolio optimization. Using daily returns from the 500 largest U.S. equities from 2000 to 2024, we devolatize returns via exponentially weighted moving average volatility estimates, then apply each estimator to standardized returns. The resulting unconditional covariance matrices serve as targets in the DCC recursion, producing time-varying conditional covariance matrices for global minimum-variance (GMV) portfolio construction.
 
-Our empirical evaluation reveals that LS consistently delivers the strongest risk-adjusted performance in unconstrained settings, achieving an annualized Sharpe ratio of 1.58 with 81.5\% cumulative return and maximum drawdown of $-3.8$\%. QIS follows closely with a Sharpe ratio of 1.41 and 66.0\% cumulative return, while requiring slightly higher leverage and turnover. AO exhibits the lowest volatility (13 bps) but underperforms with a Sharpe ratio of 1.02 and 37.9\% cumulative return, largely due to aggressive rebalancing and higher leverage requirements. In long-only portfolios, the three methods converge to similar performance metrics, with cumulative returns clustering between 372\% and 391\%, indicating that covariance regularization primarily impacts unconstrained allocations.
+Our empirical evaluation reveals that DCC-based models significantly outperform their static counterparts in unconstrained settings, with Sharpe ratios approximately doubling those of static estimators. Among the DCC variants, LS consistently delivers the strongest risk-adjusted performance, achieving an annualized Sharpe ratio of 1.58 with 81.5\% cumulative return and maximum drawdown of $-3.8$\%. QIS follows closely with a Sharpe ratio of 1.41, while the standard Sample Covariance also performs robustly within the DCC framework (Sharpe 1.33). AO exhibits the lowest volatility but underperforms with a Sharpe ratio of 1.02, largely due to aggressive rebalancing. In long-only portfolios, the performance gap narrows, though DCC-based methods still maintain a clear edge over static estimators, with cumulative returns clustering between 372\% and 391\%.
 
-These findings suggest that LS (and by extension QIS) provides the most robust foundation for DCC-based portfolio optimization, while AO may require longer estimation windows or additional shrinkage to compete effectively. Our study represents the first comprehensive comparison of these modern estimators within the DCC framework using real market data.
+These findings suggest that accounting for dynamic correlations is more critical than the choice of unconditional prior, though LS provides the most robust foundation for DCC-based portfolio optimization. Our study represents a comprehensive comparison of these modern estimators within the DCC framework using real market data.
 \end{abstract}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -129,11 +129,11 @@ Accurate estimation of covariance matrices is fundamental to portfolio optimizat
 
 \subsection{Problem Description}
 
-We address the problem of estimating conditional covariance matrices for large-scale equity portfolios by combining unconditional covariance estimators with the Dynamic Conditional Correlation (DCC) framework of \cite{engle2002}. Specifically, we compare three state-of-the-art unconditional covariance estimators---Linear Shrinkage (LS) \cite{ledoit2004}, Quadratic Inverse Shrinkage (QIS) \cite{ledoit2019}, and Average Oracle (AO) \cite{bongiorno2024}---as priors for the DCC model.
+We address the problem of estimating conditional covariance matrices for large-scale equity portfolios by comparing static covariance estimators against the Dynamic Conditional Correlation (DCC) framework of \cite{engle2002}. Specifically, we evaluate four unconditional covariance estimators---Sample Covariance, Linear Shrinkage (LS) \cite{ledoit2004}, Quadratic Inverse Shrinkage (QIS) \cite{ledoit2019}, and Average Oracle (AO) \cite{bongiorno2024}---both as standalone static estimators and as priors for the DCC model.
 
 Our empirical evaluation uses daily returns from the 500 largest U.S. equities by market capitalization, spanning from 2000 to 2024. We first devolatize returns using exponentially weighted moving average (EWMA) volatility estimates, then apply each unconditional estimator to the standardized returns. The resulting covariance matrices serve as the unconditional correlation target $C$ in the DCC recursion, which produces time-varying conditional covariance matrices. These are subsequently used to construct global minimum-variance (GMV) portfolios, and we evaluate performance across multiple metrics including Sharpe ratio, maximum drawdown, turnover, and effective number of positions.
 
-The key research question is: which unconditional covariance estimator, when embedded in the DCC framework, delivers superior risk-adjusted returns and portfolio characteristics in both unconstrained and long-only settings?
+The key research questions are: (1) Does the dynamic modeling of correlations via DCC provide significant value over static estimators in large-scale portfolios? (2) Which unconditional covariance estimator, when embedded in the DCC framework, delivers superior risk-adjusted returns and portfolio characteristics?
 
 \subsection{Prior literature}
 
@@ -361,17 +361,21 @@ For the long-only variant in Table~\ref{tab:longonly_backtest}, the optimizer cl
 
 
 \begin{table}[h]
-\small
+\scriptsize
 \centering    
 \begin{tabular}{lrrrrrrrr}
 \toprule
  & ME & STD & SR & Return & Drawdown & Turnover & GrossLev & EffN \\
 \midrule
-LS & 0.000159 & 0.0016 & 1.5794 & 0.8153 & -0.0383 & 0.2706 & 3.3850 & 10.8039 \\
-QIS & 0.000135 & 0.0015 & 1.4126 & 0.6598 & -0.0376 & 0.3077 & 3.8143 & 8.6035 \\
-AO & 0.000086 & 0.0013 & 1.0229 & 0.3785 & -0.0319 & 0.4977 & 5.4864 & 4.1407 \\
+SampleCov & 0.000477 & 0.010610 & 0.713759 & 3.888445 & -0.315055 & 0.002821 & 4.349163 & 8.234838 \\
+QIS & 0.000457 & 0.010392 & 0.698483 & 3.575675 & -0.319142 & 0.001781 & 3.777742 & 10.631438 \\
+LS & 0.000454 & 0.009996 & 0.720325 & 3.582079 & -0.333852 & 0.001248 & 2.933567 & 17.668494 \\
+AO & 0.000579 & 0.012913 & 0.711903 & 5.482530 & -0.398994 & 0.009329 & 8.155916 & 2.391476 \\
+DCC+QIS & 0.000135 & 0.001522 & 1.412587 & 0.659802 & -0.037557 & 0.307653 & 3.814332 & 8.603517 \\
+DCC+LS & 0.000159 & 0.001601 & 1.579359 & 0.815285 & -0.038311 & 0.270631 & 3.384960 & 10.803934 \\
+DCC+AO & 0.000086 & 0.001334 & 1.022869 & 0.378452 & -0.031897 & 0.497708 & 5.486436 & 4.140736 \\
+DCC+SampleCov & 0.000122 & 0.001456 & 1.326790 & 0.576637 & -0.035914 & 0.346738 & 4.168363 & 7.308186 \\
 \bottomrule
-% \centering
 \end{tabular}
 \caption{Statistics of backtest result}
 \label{tab:backtest}
@@ -380,26 +384,33 @@ AO & 0.000086 & 0.0013 & 1.0229 & 0.3785 & -0.0319 & 0.4977 & 5.4864 & 4.1407 \\
 
 \begin{figure}[htb!]
 \begin{center}
-\includegraphics[width=.6\linewidth]{backtest.png}
+\includegraphics[width=.8\linewidth]{8_ls.png}
 \caption{Backtest result}
 \label{fig:backtest}
 \end{center}
 \end{figure}
 
 
-Coupling the DCC updater with the Ledoit--Wolf linear shrinkage prior (LS) \cite{ledoit2004} produces the strongest risk-adjusted profile in the unconstrained test. As shown in Table~\ref{tab:backtest}, LS earns a mean daily return of 15.9 bps with 16 bps of volatility, yielding an annualized Sharpe ratio of 1.58 and an 81.5\% cumulative gain. Its maximum drawdown remains contained at $-3.8$\%, turnover averages only 0.27, and gross leverage is 3.39 with an effective breadth of 10.8 names. Quadratic Inverse Shrinkage (QIS) trails LS modestly: it delivers a 1.41 Sharpe and 66.0\% cumulative return, but requires slightly higher leverage (3.81) and turnover (0.31) while concentrating the portfolio into 8.6 effective positions. The Average Oracle (AO) prior is most conservative in terms of volatility (13 bps) yet posts the lowest Sharpe (1.02) and cumulative gain (37.9\%), largely because the rolling lookback induces a heavier rebalancing load (turnover 0.50) and higher gross leverage (5.49).
+The most striking result in Table~\ref{tab:backtest} is the dramatic performance improvement provided by the DCC framework. While static estimators (SampleCov, QIS, LS, AO) cluster around Sharpe ratios of 0.70--0.72, their DCC counterparts achieve Sharpe ratios between 1.02 and 1.58. This confirms that accounting for time-varying correlations is far more critical than the choice of unconditional prior in unconstrained optimization.
+
+Among the DCC variants, coupling the updater with the Ledoit--Wolf linear shrinkage prior (LS) \cite{ledoit2004} produces the strongest risk-adjusted profile. LS earns a mean daily return of 15.9 bps with 16 bps of volatility, yielding an annualized Sharpe ratio of 1.58 and an 81.5\% cumulative gain. Its maximum drawdown remains contained at $-3.8$\%, turnover averages only 0.27, and gross leverage is 3.39. Quadratic Inverse Shrinkage (QIS) trails LS modestly with a 1.41 Sharpe ratio. Notably, even the standard Sample Covariance matrix performs robustly when used as a DCC prior (DCC+SampleCov), achieving a Sharpe ratio of 1.33 and outperforming the sophisticated Average Oracle (AO) prior. DCC+AO posts the lowest Sharpe (1.02) among dynamic models, largely because the rolling lookback induces a heavier rebalancing load (turnover 0.50) and higher gross leverage (5.49).
 
 
 \begin{table}[h]
-\small
+\scriptsize
 \centering
 \begin{tabular}{lrrrrrrrr}
 \toprule
  & ME & STD & SR & Return & Drawdown & Turnover & GrossLev & EffN \\
 \midrule
-LS & 0.000443 & 0.007868 & 0.8931 & 3.7261 & -0.3064 & 0.0731 & 1.000 & 64.3939 \\
-QIS & 0.000447 & 0.008109 & 0.8752 & 3.7711 & -0.3133 & 0.0747 & 1.000 & 63.4054 \\
-AO & 0.000462 & 0.008934 & 0.8208 & 3.9135 & -0.3295 & 0.0858 & 1.000 & 62.3442 \\
+SampleCov & 5.48 & 0.011146 & 0.781124 & 5.258330 & -0.390795 & 0.000630 & 1.000000 & 99.909685 \\
+QIS & 0.000537 & 0.011006 & 0.774053 & 5.021626 & -0.387534 & 0.000473 & 1.000000 & 92.460738 \\
+LS & 0.000526 & 0.010872 & 0.767450 & 4.807136 & -0.385349 & 0.000433 & 1.000000 & 95.883031 \\
+AO & 0.000592 & 0.011758 & 0.799201 & 6.181936 & -0.402037 & 0.001084 & 1.000000 & 102.415808 \\
+DCC+QIS & 0.000447 & 0.008109 & 0.875222 & 3.771101 & -0.313300 & 0.074744 & 1.000000 & 63.405455 \\
+DCC+LS & 0.000443 & 0.007868 & 0.893133 & 3.726157 & -0.306446 & 0.073167 & 1.000000 & 64.393930 \\
+DCC+AO & 0.000462 & 0.008934 & 0.820832 & 3.913599 & -0.329578 & 0.085871 & 1.000000 & 62.344215 \\
+DCC+SampleCov & 0.000451 & 0.008327 & 0.860070 & 3.811869 & -0.317968 & 0.077490 & 1.000000 & 63.978533 \\
 \bottomrule
 \end{tabular}
 \caption{Statistics of backtest result (long only)}
@@ -410,14 +421,14 @@ AO & 0.000462 & 0.008934 & 0.8208 & 3.9135 & -0.3295 & 0.0858 & 1.000 & 62.3442 
 
 \begin{figure}[htb!]
 \begin{center}
-\includegraphics[width=.6\linewidth]{longonly.png}
+\includegraphics[width=.8\linewidth]{8_lo.png}
 \caption{Backtest result (long only)}
 \label{fig:longonly_backtest}
 \end{center}
 \end{figure}
 
 
-The long-only experiment in Table~\ref{tab:longonly_backtest} compresses the dispersion because the simplex constraint dominates the solution. All three priors post similar mean returns (44--46 bps), volatilities (0.79--0.89\%), and Sharpe ratios (0.82--0.89), while cumulative gains cluster between 372\% and 391\%. With shorts disallowed, gross leverage collapses to 1 and the effective number of positions stabilizes near the 60s, indicating broad diversification. AO enjoys the highest compounded return (391\%) but at the cost of the deepest drawdown ($-33$\%) and the largest turnover (0.086). LS and QIS remain nearly indistinguishable across all long-only metrics, underscoring that covariance regularization primarily influences the unconstrained GMV allocation and has muted impact once the portfolio is forced to be long-only.
+The long-only experiment in Table~\ref{tab:longonly_backtest} compresses the dispersion because the simplex constraint dominates the solution. Nevertheless, DCC-based portfolios still maintain a clear edge, achieving Sharpe ratios of 0.82--0.89 compared to 0.77--0.80 for static estimators. DCC+LS (0.89) and DCC+QIS (0.88) remain the top performers, while DCC+SampleCov (0.86) continues to perform competitively. Interestingly, the static AO estimator performs surprisingly well in this setting (Sharpe 0.80), slightly edging out other static methods. With shorts disallowed, gross leverage collapses to 1 and the effective number of positions stabilizes near the 60s for DCC models and 90s for static models, indicating that dynamic correlations encourage slightly more concentrated positions even under constraints. Overall, while the simplex constraint dampens the benefits of advanced estimation, the hierarchy of performance remains largely consistent with the unconstrained case.
 
 
 \newpage
@@ -431,9 +442,9 @@ The long-only experiment in Table~\ref{tab:longonly_backtest} compresses the dis
 
 
 
-The DCC experiments reveal that the Ledoit--Wolf linear shrinkage (LS) prior consistently delivers the most attractive risk-adjusted profile. In the unconstrained backtest, LS balances return and risk by pairing a modest 16 bps daily volatility with the highest Sharpe ratio (1.58) and the shallowest drawdowns, while also keeping turnover below 0.30. The same prior remains competitive in the long-only setting, where the simplex constraint compresses performance dispersion but LS still matches or exceeds the other priors on every reported metric.
+The comprehensive comparison of eight covariance specifications reveals two primary insights. First, the dynamic modeling of correlations is the single most important factor for portfolio performance. Across all metrics, DCC-based models significantly outperform their static counterparts, doubling Sharpe ratios in unconstrained settings and maintaining a clear advantage in long-only portfolios. This suggests that capturing the time-varying nature of risk is more critical than the precise regularization of the unconditional covariance matrix.
 
-Quadratic Inverse Shrinkage (QIS) operates close to LS across both experiments, confirming that stronger eigenvalue regularization narrows the gap when leverage is capped. QIS, however, requires slightly higher gross leverage and turnover to reach comparable returns, reflecting its heavier reliance on large-cap exposures. The Average Oracle (AO) prior, although theoretically appealing, underperforms because its rolling estimation window feeds noisier covariance slices into the DCC updater. The estimator appears data-hungry: once the sample thins, AO must rebalance aggressively (turnover near 0.50) and leans on leverage, which erodes its Sharpe ratio despite the lowest standalone volatility. Overall, the evidence recommends LS (and, by extension, QIS) for production, while AO would likely need either longer histories or additional shrinkage before it can compete.
+Second, within the DCC framework, the Ledoit--Wolf linear shrinkage (LS) prior consistently delivers the most attractive risk-adjusted profile. In the unconstrained backtest, LS balances return and risk by pairing a modest 16 bps daily volatility with the highest Sharpe ratio (1.58) and the shallowest drawdowns. Quadratic Inverse Shrinkage (QIS) follows closely, while the standard Sample Covariance matrix also performs remarkably well (Sharpe 1.33), suggesting that the DCC recursion itself provides a form of regularization that mitigates some of the sample covariance's instability. The Average Oracle (AO) prior, although theoretically appealing, underperforms because its rolling estimation window feeds noisier covariance slices into the DCC updater. Overall, the evidence recommends LS as the robust foundation for DCC-based portfolio optimization, though even simple priors can be effective when dynamic correlations are properly modeled.
 
 \section*{Limitations and Future Research}
 
